@@ -1,0 +1,127 @@
+{
+  "name": "extshield",
+  "displayName": "ExtShield — Zero-Trust Extension Monitor",
+  "description": "Monitors file access, network calls, and secret usage by other installed VS Code extensions, and lets you set best-effort access policies per extension.",
+  "version": "0.1.2",
+  "publisher": "AnandShah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnandShah10/extShield.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["security", "sandbox", "privacy", "extensions", "monitor"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+    "contributes": {
+    "commands": [
+      {
+        "command": "extshield.openDashboard",
+        "title": "ExtShield: Open Activity Dashboard",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "extshield.scanExtensions",
+        "title": "ExtShield: Scan Installed Extensions for Risk"
+      },
+      {
+        "command": "extshield.setPolicy",
+        "title": "ExtShield: Set Access Policy for an Extension"
+      },
+      {
+        "command": "extshield.toggleMonitoring",
+        "title": "ExtShield: Toggle Monitoring On/Off"
+      },
+      {
+        "command": "extshield.clearLog",
+        "title": "ExtShield: Clear Activity Log"
+      },
+      {
+        "command": "extshield.exportLog",
+        "title": "ExtShield: Export Activity Log as JSON"
+      },
+      {
+        "command": "extshield.manageTrustedExtensions",
+        "title": "ExtShield: Manage Trusted Extensions Allowlist"
+      },
+      {
+        "command": "extshield.suggestIsolation",
+        "title": "ExtShield: Suggest Extension Host Isolation"
+      },
+      {
+        "command": "extshield.showLogLocation",
+        "title": "ExtShield: Show Historical Log File Location"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "extshield.openDashboard" },
+        { "command": "extshield.scanExtensions" },
+        { "command": "extshield.setPolicy" },
+        { "command": "extshield.toggleMonitoring" },
+        { "command": "extshield.clearLog" },
+        { "command": "extshield.exportLog" },
+        { "command": "extshield.manageTrustedExtensions" },
+        { "command": "extshield.suggestIsolation" },
+        { "command": "extshield.showLogLocation" }
+      ]
+    },
+    "configuration": {
+      "title": "ExtShield",
+      "properties": {
+        "extshield.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Master switch for ExtShield monitoring."
+        },
+        "extshield.blockOnPolicyViolation": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, ExtShield will attempt to block fs/network calls from an extension that violate its configured policy (best-effort — see README for limitations)."
+        },
+        "extshield.monitorEnvAccess": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental: wrap process.env in a Proxy to log which extension reads environment variables. May have side effects on some extensions — off by default."
+        },
+        "extshield.logRetentionEntries": {
+          "type": "number",
+          "default": 2000,
+          "description": "Maximum number of activity log entries kept in memory."
+        },
+        "extshield.notifyOnSecretAccess": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning notification when an extension reads a file that looks like it contains secrets (.env, credentials, private keys, etc.)."
+        },
+        "extshield.diskLogRetentionDays": {
+          "type": "number",
+          "default": 30,
+          "description": "How many days of on-disk activity log history to keep. Set to 0 to keep logs forever (not recommended for large workspaces)."
+        },
+        "extshield.threatIntel.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Look up network destinations contacted by extensions against the free URLhaus (abuse.ch) malicious-host feed. Requires outbound network access to urlhaus-api.abuse.ch; falls back to a small static watch-list if unreachable."
+        },
+        "extshield.threatIntel.cacheTtlMinutes": {
+          "type": "number",
+          "default": 60,
+          "description": "How long to cache a threat-intel lookup result for a given host before checking again."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

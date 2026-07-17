@@ -12,13 +12,15 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 export interface ThreatIntelResult {
   checked: boolean;
   malicious: boolean;
-  source: string; // e.g. "URLhaus", "static-blocklist", "cache"
+  confidence: number; // 0-100, blended weight of every source that flagged the host
+  sources: string[]; // names of sources that flagged it; empty if clean or unchecked
+  source: string; // human-readable summary (e.g. "URLhaus + OpenPhish", "cache"), kept for display convenience
   detail?: string;
   checkedAt?: number;
 }
 
 export interface ActivityEvent {
-  id: number;
+  id: string; // globally unique (not just per-session) so delayed updates can find the right persisted record
   timestamp: number;
   extensionId: string | null; // null = could not attribute (likely VS Code core or ExtShield itself)
   kind: EventKind;

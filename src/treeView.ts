@@ -108,6 +108,8 @@ export class ExtShieldTreeProvider implements vscode.TreeDataProvider<ExtShieldT
       { label: 'Open Activity Dashboard', command: 'extshield.openDashboard', icon: 'graph' },
       { label: 'Scan Installed Extensions', command: 'extshield.scanExtensions', icon: 'search' },
       { label: 'Manage Trusted Extensions', command: 'extshield.manageTrustedExtensions', icon: 'verified' },
+      { label: 'Export Trusted Extensions List…', command: 'extshield.exportTrustedExtensions', icon: 'cloud-upload' },
+      { label: 'Import Trusted Extensions List…', command: 'extshield.importTrustedExtensions', icon: 'cloud-download' },
       { label: 'Suggest Extension Host Isolation…', command: 'extshield.suggestIsolation', icon: 'server-process' },
       { label: 'Set Access Policy…', command: 'extshield.setPolicy', icon: 'law' },
       { label: 'Export Activity Log as JSON', command: 'extshield.exportLog', icon: 'export' },

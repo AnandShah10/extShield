@@ -9,7 +9,7 @@ import { TrustedExtensionsManager } from './trustedExtensions';
 import { ThreatIntelService } from './threatIntel';
 import { buildIsolationSuggestion, applyExtensionKindOverride } from './isolationAdvisor';
 import { ExtShieldTreeProvider, ExtShieldTreeItem, TreeState } from './treeView';
-import { ActivityEvent, ExtensionPolicy } from './types';
+import { ActivityEvent, ExtensionPolicy, ExtensionRiskProfile } from './types';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -21,6 +21,7 @@ let logStore: LogStore | undefined;
 let eventLog: ActivityEvent[] = [];
 let initError: string | undefined;
 let treeProvider: ExtShieldTreeProvider | undefined;
+let autoSuggestedIsolationIds = new Set<string>();
 
 function readConfig(): MonitorConfig & {
   enabled: boolean;
@@ -76,6 +77,42 @@ function notReady(): boolean {
   return false;
 }
 
+/**
+ * After any risk scan, proactively nudges the user toward isolating
+ * anything that scored above the configured threshold — but only when
+ * there's actually a remote/container/WSL context to isolate into
+ * (otherwise the suggestion is unactionable noise, so it stays quiet), only
+ * for untrusted extensions, and only once per extension per session so it
+ * can't turn into repeated nagging on every rescan.
+ */
+function maybeAutoSuggestIsolation(profiles: ExtensionRiskProfile[]): void {
+  const threshold = vscode.workspace.getConfiguration('extshield').get<number>('autoSuggestIsolationThreshold', 70);
+  if (threshold <= 0) {
+    return; // 0 disables this entirely
+  }
+  for (const p of profiles) {
+    if (p.trusted || p.riskScore < threshold || autoSuggestedIsolationIds.has(p.extensionId)) {
+      continue;
+    }
+    const suggestion = buildIsolationSuggestion(p.extensionId);
+    if (!suggestion.canSuggest) {
+      continue; // nothing actionable right now — see isolationAdvisor.ts
+    }
+    autoSuggestedIsolationIds.add(p.extensionId);
+    vscode.window
+      .showWarningMessage(
+        `ExtShield: "${p.displayName}" scored ${p.riskScore}/100 in the risk scan. ${suggestion.rationale}`,
+        'Suggest Isolation',
+        'Dismiss'
+      )
+      .then((choice) => {
+        if (choice === 'Suggest Isolation') {
+          promptIsolation(p.extensionId);
+        }
+      });
+  }
+}
+
 function dashboardCallbacks() {
   return {
     onSetPolicy: (extensionId: string) => promptSetPolicy(extensionId),
@@ -94,6 +131,7 @@ function dashboardCallbacks() {
       const profiles = scanInstalledExtensions(trustManager);
       DashboardPanel.current?.updateRiskProfiles(profiles);
       treeProvider?.setRiskProfiles(profiles);
+      maybeAutoSuggestIsolation(profiles);
     },
     onSuggestIsolation: (extensionId: string) => promptIsolation(extensionId)
   };
@@ -187,8 +225,9 @@ async function initialize(context: vscode.ExtensionContext): Promise<void> {
         if (result.malicious) {
           evt.risk = 'high';
           outputChannel.appendLine(
-            `[threat-intel] ${evt.extensionId ?? '(unattributed)'} contacted ${evt.target} — flagged by ${result.source}${
-              result.detail ? ': ' + result.detail : ''
+            `[threat-intel] ${evt.extensionId ?? '(unattributed)'} contacted ${evt.target} — flagged by ${result.source}` +
+              `${typeof result.confidence === 'number' ? ` (confidence ${result.confidence}%)` : ''}` +
+              `${result.detail ? ': ' + result.detail : ''
             }`
           );
           vscode.window
@@ -202,6 +241,11 @@ async function initialize(context: vscode.ExtensionContext): Promise<void> {
               }
             });
         }
+        // The base event was already queued/flushed to disk before this
+        // async lookup resolved — rewrite that persisted record now so
+        // historical exports reflect the threat-intel result too, not just
+        // the live dashboard.
+        logStore?.updateEvent(evt).catch(() => undefined);
         DashboardPanel.current?.updateEvents(eventLog);
         updateStatusBar();
       });
@@ -290,6 +334,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
       );
       treeProvider?.setRiskProfiles(profiles);
       DashboardPanel.current?.updateRiskProfiles(profiles);
+      maybeAutoSuggestIsolation(profiles);
     })
   );
 
@@ -335,6 +380,52 @@ function registerCommands(context: vscode.ExtensionContext): void {
       }
       vscode.window.showInformationMessage(`ExtShield: trusted-extensions list updated (${pickedIds.size} trusted).`);
       treeProvider?.setRiskProfiles(scanInstalledExtensions(tm));
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.exportTrustedExtensions', async () => {
+      if (notReady() || !trustManager) return;
+      const json = trustManager.exportAsJson();
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file('extshield-trusted-extensions.json'),
+        filters: { JSON: ['json'] },
+        title: 'Export ExtShield Trusted Extensions'
+      });
+      if (!uri) {
+        return;
+      }
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(json, 'utf8'));
+      vscode.window.showInformationMessage(`ExtShield: trusted-extensions list exported to ${uri.fsPath}`);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.importTrustedExtensions', async () => {
+      if (notReady() || !trustManager) return;
+      const tm = trustManager;
+      const uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { JSON: ['json'] },
+        openLabel: 'Import',
+        title: 'Import ExtShield Trusted Extensions'
+      });
+      if (!uris || uris.length === 0) {
+        return;
+      }
+      try {
+        const bytes = await vscode.workspace.fs.readFile(uris[0]);
+        const text = Buffer.from(bytes).toString('utf8');
+        const result = await tm.importFromJson(text);
+        vscode.window.showInformationMessage(
+          `ExtShield: import complete — ${result.added} extension(s) newly trusted, ${result.removed} removal(s) applied.`
+        );
+        const profiles = scanInstalledExtensions(tm);
+        treeProvider?.setRiskProfiles(profiles);
+        DashboardPanel.current?.updateRiskProfiles(profiles);
+      } catch (err: any) {
+        vscode.window.showErrorMessage(`ExtShield: failed to import trust list — ${err?.message ?? err}`);
+      }
     })
   );
 
@@ -406,7 +497,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
         treeProvider?.refresh();
         return;
       }
-      treeProvider?.setRiskProfiles(scanInstalledExtensions(trustManager));
+      const profiles = scanInstalledExtensions(trustManager);
+      treeProvider?.setRiskProfiles(profiles);
+      maybeAutoSuggestIsolation(profiles);
     })
   );
 

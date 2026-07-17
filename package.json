@@ -2,7 +2,7 @@
   "name": "extshield",
   "displayName": "ExtShield — Zero-Trust Extension Monitor",
   "description": "Monitors file access, network calls, and secret usage by other installed VS Code extensions, and lets you set best-effort access policies per extension.",
-  "version": "0.1.3",
+  "version": "0.1.0",
   "publisher": "AnandShah",
   "repository": {
     "type": "git",
@@ -15,7 +15,7 @@
   "keywords": ["security", "sandbox", "privacy", "extensions", "monitor"],
   "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
-    "contributes": {
+  "contributes": {
     "commands": [
       {
         "command": "extshield.openDashboard",
@@ -47,6 +47,14 @@
       {
         "command": "extshield.manageTrustedExtensions",
         "title": "ExtShield: Manage Trusted Extensions Allowlist"
+      },
+      {
+        "command": "extshield.exportTrustedExtensions",
+        "title": "ExtShield: Export Trusted Extensions List"
+      },
+      {
+        "command": "extshield.importTrustedExtensions",
+        "title": "ExtShield: Import Trusted Extensions List"
       },
       {
         "command": "extshield.suggestIsolation",
@@ -108,6 +116,8 @@
         { "command": "extshield.clearLog" },
         { "command": "extshield.exportLog" },
         { "command": "extshield.manageTrustedExtensions" },
+        { "command": "extshield.exportTrustedExtensions" },
+        { "command": "extshield.importTrustedExtensions" },
         { "command": "extshield.suggestIsolation" },
         { "command": "extshield.showLogLocation" },
         { "command": "extshield.refreshTree" },
@@ -169,6 +179,11 @@
           "type": "number",
           "default": 60,
           "description": "How long to cache a threat-intel lookup result for a given host before checking again."
+        },
+        "extshield.autoSuggestIsolationThreshold": {
+          "type": "number",
+          "default": 70,
+          "description": "If an extension's risk-scan score is at or above this threshold (0-100) and there's an active Remote-SSH/Container/WSL connection to isolate it into, ExtShield proactively suggests isolating it (once per extension per session). Set to 0 to disable and only get suggestions on request."
         }
       }
     }

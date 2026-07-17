@@ -1,134 +1,106 @@
-# ExtShield — Zero-Trust Extension Monitor for VS Code
+# ExtShield — Zero-Trust Extension Monitor
 
-ExtShield watches what *other installed extensions* do — file access, outbound network calls, spawned processes, and (optionally) environment variable reads — and shows you which extension did what. It flags sensitive-looking file access and lets you set a best-effort access policy per extension. Everything below is usable entirely from the sidebar; you don't need the Command Palette day to day.
+[![Version](https://img.shields.io/visual-studio-marketplace/v/AnandShah.extshield?label=version&color=blue)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/AnandShah.extshield?label=installs)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/AnandShah.extshield?label=rating)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
+[![License](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 
-## Getting started
+**See what your other extensions are actually doing — file access, network calls, and secrets — before it's a problem.**
 
-1. Click the shield icon in the **Activity Bar** (the vertical bar of icons on the far left/right of the window) to open the **ExtShield** view.
-2. That's it — monitoring starts automatically. The view updates live as extensions do things.
+VS Code extensions run with full access to your files, your network, and anything in your workspace, with no built-in permission system to show you what they're doing with it. ExtShield watches the extensions you already have installed, flags sensitive file and suspicious network access as it happens, and gives you a one-click way to restrict or isolate anything that looks off — all from a sidebar, no Command Palette required.
 
-If you don't see the icon, run **View → Open View...** and search for "ExtShield," or use `Ctrl/Cmd+Shift+P` → "ExtShield: Open Activity Dashboard" once — after that the icon stays in the Activity Bar.
-
-## Using the sidebar
-
-The ExtShield view has three parts:
-
-**1. Status row** (top)
-Shows `Monitoring: ON` or `OFF`, plus a live count of events, high-risk events, and blocked calls. Click it to toggle monitoring on/off — no settings menu needed.
-
-**2. Quick Actions**
-A flat list, click any row to run it:
-- Open Activity Dashboard — the full live log, filterable, in a tab
-- Scan Installed Extensions — refreshes the risk list below
-- Manage Trusted Extensions — a checklist to mark extensions you don't want nagging you for a policy
-- Suggest Extension Host Isolation — see "Isolation" below
-- Set Access Policy… — pick any extension and restrict it
-- Export Activity Log as JSON — full history, opens as a document
-- Show Historical Log Location — where the on-disk log file lives
-- Clear In-Memory Log — clears the live view only; disk history is untouched
-
-**3. Extension Risk Scan**
-A list of your installed extensions sorted by a heuristic risk score (updates when you click "Scan Installed Extensions"). Each row shows the score and, on hover, *why* it scored that way. Three icons sit on the right of each row — no menus, no palette:
-
-| Icon | Action |
-|---|---|
-| ⚖️ (law) | Set an access policy for this specific extension |
-| ✅ (verified) | Toggle it trusted/untrusted |
-| 🖥️ (server-process) | Get an isolation suggestion for it |
-
-Clicking the row itself is the same as the ⚖️ icon (set policy) — the fastest path for the most common action.
-
-There's also a small toolbar at the top of the view itself (hover over the "ExtShield" header): a dashboard shortcut, a refresh button, and the monitoring toggle, all one click.
-
-## The dashboard (optional, for deep-dives)
-
-"Open Activity Dashboard" opens a full tab with two views:
-- **Activity Log** — every file/network/process event, filterable by extension or target, color-coded by risk, with a live threat-intel badge on network calls.
-- **Extension Risk Scan** — the same list as the sidebar, with more room, plus "Set policy…", "Mark trusted"/"Remove trust", and "Suggest isolation…" buttons per row.
-
-Use the sidebar for quick day-to-day glances and actions; use the dashboard when you actually want to read through what happened.
-
-## What gets flagged automatically (no action needed)
-
-- Reading files that look like secrets (`.env`, `id_rsa`, cloud credentials, `.npmrc`, PEM keys, etc.) pops a warning with "Open Dashboard" / "Set Policy" buttons right there.
-- Contacting a network host flagged by the free URLhaus malicious-host feed pops a similar warning.
-- Both are logged either way, flagged or not, so the activity log stays a complete record.
-
-## Settings
-
-Settings → search "ExtShield", or edit directly in `settings.json`:
-
-| Setting | Default | What it does |
-|---|---|---|
-| `extshield.enabled` | `true` | Master on/off (same as the sidebar status row) |
-| `extshield.blockOnPolicyViolation` | `false` | Actually enforce policies (block), not just log violations |
-| `extshield.monitorEnvAccess` | `false` | Experimental: log which extension reads which env var name |
-| `extshield.notifyOnSecretAccess` | `true` | Pop a warning on sensitive file/content access |
-| `extshield.logRetentionEntries` | `2000` | Max events kept in memory/dashboard |
-| `extshield.diskLogRetentionDays` | `30` | Days of on-disk history kept; `0` = forever |
-| `extshield.threatIntel.enabled` | `true` | Check contacted hosts against URLhaus |
-| `extshield.threatIntel.cacheTtlMinutes` | `60` | How long to cache a host's threat-intel result |
-
-## Isolation suggestions, in plain terms
-
-Clicking the 🖥️ icon (or "Suggest Extension Host Isolation") does one of two things:
-- **Not connected to Remote-SSH / Dev Containers / WSL right now?** You'll get a plain message saying there's no second process to isolate anything into — nothing to click through, just the honest answer.
-- **Connected?** You'll get a choice to run that specific extension in the remote/container process instead of your local machine (or vice versa), via VS Code's own `remote.extensionKind` setting. Confirming offers to reload the window so it takes effect.
-
-## Troubleshooting
-
-- **A command says "not found"** — this means the extension failed to initialize. Open the "ExtShield" output channel (bottom panel → Output → pick "ExtShield" from the dropdown, or click the warning row at the top of the sidebar) to see why, then reload the window after fixing it.
-- **Sidebar shows "ExtShield failed to initialize"** — same as above; click that row to jump straight to the output channel.
-- **Nothing shows up in the Activity Log** — monitoring only sees activity from *other* extensions after ExtShield has started; try triggering something in another extension (e.g. open a file it processes), then check again.
-
-## Building from source
-
-\`\`\`bash
-npm install
-npm run compile
-\`\`\`
-Press **F5** with this folder open to launch an Extension Development Host with ExtShield active.
+> **Read [Security Model & Limitations](#security-model--limitations) before you rely on this.** ExtShield gives real visibility and best-effort blocking; it is not a sandbox, and this README says so plainly rather than overselling it.
 
 ---
 
-## What this actually is (read this before relying on it)
+## Features
 
-VS Code has **no built-in permission system or sandbox for extensions** — all extensions share one process and one set of Node built-ins, with no OS-level isolation. ExtShield works by patching those shared built-ins (`fs`, `http`/`https`, `child_process`) and using the JS call stack to attribute each call to the extension that made it. That gives real visibility and a best-effort blocking layer, **not** a true sandbox:
+- 🛡️ **Live activity monitoring** — every file read/write/delete, network request, and spawned process from every other installed extension, attributed to the extension that did it.
+- 🔑 **Automatic secret-access alerts** — get warned the moment an extension reads a `.env`, an SSH key, cloud credentials, or a file whose *contents* look like an API key, without lifting a finger.
+- 🌐 **Multi-source threat intelligence** — outbound network destinations are checked against URLhaus and the OpenPhish community feed, blended into a single confidence score.
+- ⚖️ **Per-extension access policies** — restrict a specific extension to a path prefix, or block its network/process access outright, enforced on request.
+- ✅ **Trusted-extensions allowlist** — a sensible starter list for well-known extensions, syncs across your machines via VS Code Settings Sync, and can be exported/imported to share with a team.
+- 🖥️ **One-click isolation suggestions** — when you're connected to Remote-SSH/Dev Containers/WSL, ExtShield can push a risky extension into that separate process for you, automatically surfacing the suggestion for anything that scores high enough.
+- 📊 **Manifest-based risk scan** — every installed extension gets a heuristic risk score with the specific reasons behind it.
+- 💾 **Persistent history** — the activity log survives restarts and is fully exportable as JSON.
+- 🧭 **A real sidebar, not just commands** — a dedicated Activity Bar view with a status toggle, one-click actions, and an actionable risk list. See [Getting Started](#getting-started).
 
-- A sufficiently motivated extension can bypass monitoring (native addons, worker threads, bundled copies of Node core modules, or grabbing function references before ExtShield activates).
-- Web Extensions (running in a browser Worker, e.g. vscode.dev) aren't covered at all — there's no shared Node process there to patch.
-- Blocking only applies at the exact patched entry points; anything reaching the OS a different way isn't caught.
-- Stack-trace attribution is best-effort; unattributable events are logged as "(unattributed)" and policies aren't enforced against them (fails open, on purpose).
-- Risk scores are manifest-based heuristics — a prioritization signal, not a verdict.
-- Threat-intel checks happen *after* the network call already went out, so they inform review/alerting, not blocking. "Clean" means "not currently listed," not "verified safe."
-- Isolation suggestions only do something in a Remote-SSH/Container/WSL setup, since that's the only place VS Code actually gives you a second, separate process to move an extension into.
+## Getting Started
 
-Treat ExtShield like a network monitor or audit log: excellent for visibility and catching sloppy/obvious bad behavior, not a guarantee against a sophisticated, determined attacker.
+1. Install the extension. A shield icon appears in the **Activity Bar**.
+2. Click it — monitoring starts automatically, no configuration needed.
+3. Click **Scan Installed Extensions** in the sidebar to see a risk-ranked list of everything you have installed.
 
-## Project layout
+That's the whole setup. Everything below is available directly from that sidebar view: a status row you click to toggle monitoring, a list of one-click actions (dashboard, scan, trust management, policy, log export), and a risk list where each row has inline buttons to set a policy, toggle trust, or get an isolation suggestion.
 
-\`\`\`
-media/
-  icon.svg              Activity Bar icon
-src/
-  extension.ts           activation, commands, sidebar/status bar wiring
-  treeView.ts             the Activity Bar sidebar (TreeDataProvider)
-  monitor.ts              patches fs/http/https/child_process (+ optional env)
-  attribution.ts          stack-trace -> extension id resolution
-  policyManager.ts        per-extension policy storage
-  secretDetector.ts       sensitive-path and secret-content pattern matching
-  scanner.ts              manifest-based risk scoring of installed extensions
-  trustedExtensions.ts    trusted allowlist (built-in + user-managed)
-  threatIntel.ts          URLhaus lookups with caching and offline fallback
-  isolationAdvisor.ts     remote.extensionKind-based isolation suggestions
-  logStore.ts             on-disk JSONL persistence + retention pruning
-  dashboardPanel.ts       webview UI (activity log + risk scan tabs)
-  types.ts                shared TypeScript interfaces
-\`\`\`
+Prefer a bigger view? **ExtShield: Open Activity Dashboard** opens a full tab with a filterable, color-coded activity log and the same risk-scan list with more room to work.
 
-## Further ideas
+## Requirements
 
-- Retroactively update persisted log entries when a delayed threat-intel result comes back.
-- Share/export the trusted-extensions list across machines.
-- Blend multiple threat-intel sources with a confidence score.
-- Auto-surface isolation suggestions for anything scoring above a threshold, instead of only on request.
+- VS Code `1.85.0` or later.
+- No other dependencies — ExtShield works out of the box on any workspace.
+- Outbound network access to `urlhaus-api.abuse.ch` and `openphish.com` is needed for live threat-intel checks; without it, ExtShield falls back to a small static watch-list automatically.
+- The one-click isolation feature only does something useful when you're connected via Remote-SSH, Dev Containers, or WSL — see [Security Model & Limitations](#security-model--limitations).
+
+## Extension Settings
+
+This extension contributes the following settings (`Ctrl/Cmd+,` → search "ExtShield"):
+
+| Setting | Default | Description |
+|---|---|---|
+| `extshield.enabled` | `true` | Master on/off switch for monitoring |
+| `extshield.blockOnPolicyViolation` | `false` | Actually enforce configured policies (block), not just log violations |
+| `extshield.monitorEnvAccess` | `false` | Experimental: log which extension reads which environment variable name |
+| `extshield.notifyOnSecretAccess` | `true` | Pop a warning when a sensitive file or content pattern is detected |
+| `extshield.logRetentionEntries` | `2000` | Max in-memory/dashboard activity log entries |
+| `extshield.diskLogRetentionDays` | `30` | Days of on-disk history kept; `0` keeps forever |
+| `extshield.threatIntel.enabled` | `true` | Check contacted hosts against URLhaus + OpenPhish |
+| `extshield.threatIntel.cacheTtlMinutes` | `60` | How long to cache a host's threat-intel result |
+| `extshield.autoSuggestIsolationThreshold` | `70` | Risk score (0-100) at which ExtShield proactively suggests isolation; `0` disables proactive suggestions |
+
+## Commands
+
+Everything is also reachable from the Command Palette (`Ctrl/Cmd+Shift+P`) if you prefer typing over clicking:
+
+`ExtShield: Open Activity Dashboard` · `Scan Installed Extensions for Risk` · `Set Access Policy for an Extension` · `Manage Trusted Extensions Allowlist` · `Export/Import Trusted Extensions List` · `Suggest Extension Host Isolation` · `Toggle Monitoring On/Off` · `Clear Activity Log` · `Export Activity Log as JSON` · `Show Historical Log File Location`
+
+## Security Model & Limitations
+
+**Please read this section.** VS Code has no built-in permission system or sandbox for extensions — every extension shares one process and one set of Node.js built-ins, with no OS-level isolation between them. ExtShield works by monitoring those shared built-ins (`fs`, `http`/`https`, `child_process`) and using the call stack to attribute activity back to the extension that triggered it. That's real, useful visibility and a best-effort blocking layer — **it is not a true sandbox**, and here's specifically why:
+
+- A sufficiently motivated extension can bypass monitoring entirely — native addons, worker threads, bundled copies of Node's core modules, or code that grabs function references before ExtShield activates.
+- Web Extensions (running in a browser Worker, e.g. on vscode.dev) aren't covered — there's no shared Node process there to monitor.
+- Policy enforcement only blocks calls that pass through the specific patched entry points; anything reaching the OS a different way isn't caught.
+- Attribution is best-effort. When ExtShield can't confidently attribute an action to a specific extension, that action is logged as "(unattributed)" and policies are **not** enforced against it — it fails open by design, so a monitoring gap can't accidentally break an unrelated extension.
+- Risk scores are static, manifest-based heuristics — a prioritization signal for what to look at first, not a verdict. A high score doesn't mean malicious; a low score doesn't guarantee safe.
+- Threat-intel results reflect whether a host has been *reported*, not whether *this specific connection* was malicious, and the check happens after the connection already went out — it informs review and alerting, not real-time blocking.
+- Isolation suggestions only do something when you're already connected to a Remote-SSH/Container/WSL target, because that's the only setup where VS Code actually gives you a second, separate process to move an extension into. Without one, ExtShield tells you so plainly instead of pretending to isolate anything.
+
+Think of ExtShield as a network monitor or audit log for your extensions: excellent for visibility and for catching sloppy or obviously bad behavior, not a guarantee against a sophisticated, determined attacker.
+
+## Privacy & Data
+
+- Activity data (file paths, hostnames, commands) stays local, written to your own machine's extension storage — never sent anywhere by ExtShield itself.
+- Threat-intel checks send only the **hostname** being contacted (not full URLs, paths, or payloads) to URLhaus (abuse.ch) and OpenPhish, two independent free community services, purely to check reputation. This can be disabled entirely via `extshield.threatIntel.enabled`.
+- Your trusted-extensions list may sync across your own machines via VS Code's built-in Settings Sync, if you have that enabled — this is VS Code's mechanism, not a separate ExtShield service.
+
+## Known Issues
+
+- Stack-trace attribution can occasionally miss extremely deferred or deeply async call chains, showing "(unattributed)" instead of a specific extension.
+- The static threat-intel watch-list is illustrative and small; it is not a substitute for the live URLhaus/OpenPhish checks.
+- If you find an extension behaving in an unexpected way that ExtShield doesn't explain well, please open an issue with the "ExtShield" output channel contents attached (`ExtShield: Show Output Channel`).
+
+## Release Notes
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+### 0.1.0
+Initial release: activity monitoring, secret detection, per-extension policies, multi-source threat intel, trusted-extensions allowlist with sync/export, isolation suggestions, and the Activity Bar sidebar.
+
+## Contributing
+
+Found a bug or have an idea? Issues and pull requests are welcome on the project's repository. For local development setup (build from source, run in a dev host), see `CONTRIBUTING.md`.
+
+## License
+
+[MIT](LICENSE)

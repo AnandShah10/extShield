@@ -189,7 +189,10 @@ export class DashboardPanel {
     if (e.kind !== 'net.request') return '';
     const ti = e.threatIntel;
     if (!ti || !ti.checked) return '<span class="badge badge-unchecked">checking…</span>';
-    if (ti.malicious) return '<span class="badge badge-malicious" title="' + escapeHtml(ti.detail || '') + '">flagged: ' + escapeHtml(ti.source) + '</span>';
+    if (ti.malicious) {
+      const conf = typeof ti.confidence === 'number' ? ti.confidence : null;
+      return '<span class="badge badge-malicious" title="' + escapeHtml(ti.detail || '') + '">flagged' + (conf !== null ? ' (' + conf + '% confidence)' : '') + ': ' + escapeHtml(ti.source) + '</span>';
+    }
     return '<span class="badge badge-clean">clean (' + escapeHtml(ti.source) + ')</span>';
   }
 

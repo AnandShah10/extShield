@@ -16,7 +16,16 @@ export interface MonitorConfig {
 type Unpatch = () => void;
 
 export class Monitor {
-  private nextId = 1;
+  private idCounter = 1;
+  // Session token makes ids unique across activations, not just within one —
+  // needed so a delayed threat-intel result can find the right persisted
+  // on-disk record even after a reload, without ids from different sessions
+  // colliding in the same day's log file.
+  private sessionToken = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+  private genId(): string {
+    return `${this.sessionToken}-${this.idCounter++}`;
+  }
   private unpatchers: Unpatch[] = [];
   private running = false;
 
@@ -148,7 +157,7 @@ export class Monitor {
   ): { extensionId: string | null } {
     const { extensionId } = attributeCaller(captureStack());
     const evt: ActivityEvent = {
-      id: this.nextId++,
+      id: this.genId(),
       timestamp: Date.now(),
       extensionId,
       kind,
@@ -219,7 +228,7 @@ export class Monitor {
     const shouldBlock = this.config.blockOnPolicyViolation && !pathAllowed;
 
     const evt: ActivityEvent = {
-      id: this.nextId++,
+      id: this.genId(),
       timestamp: Date.now(),
       extensionId,
       kind,
@@ -270,7 +279,7 @@ export class Monitor {
     const shouldBlock = this.config.blockOnPolicyViolation && !pathAllowed;
 
     const evt: ActivityEvent = {
-      id: this.nextId++,
+      id: this.genId(),
       timestamp: Date.now(),
       extensionId,
       kind,
@@ -343,7 +352,7 @@ export class Monitor {
     const shouldBlock = this.config.blockOnPolicyViolation && !allowed;
 
     const evt: ActivityEvent = {
-      id: this.nextId++,
+      id: this.genId(),
       timestamp: Date.now(),
       extensionId,
       kind: 'net.request',
@@ -385,7 +394,7 @@ export class Monitor {
     const shouldBlock = this.config.blockOnPolicyViolation && !allowed;
 
     const evt: ActivityEvent = {
-      id: this.nextId++,
+      id: this.genId(),
       timestamp: Date.now(),
       extensionId,
       kind: 'child.exec',
@@ -418,7 +427,7 @@ export class Monitor {
             const { extensionId } = attributeCaller(captureStack());
             const looksSecret = /key|secret|token|password|credential/i.test(prop);
             this.onEvent({
-              id: this.nextId++,
+              id: this.genId(),
               timestamp: Date.now(),
               extensionId,
               kind: 'env.read',

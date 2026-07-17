@@ -35,6 +35,19 @@ export class TrustedExtensionsManager {
   private userRemovedFromBuiltin = new Set<string>();
 
   constructor(private context: vscode.ExtensionContext) {
+    // If the user has VS Code Settings Sync turned on, this key (and
+    // therefore trust decisions) syncs across their machines automatically
+    // with zero extra effort — this is a real, built-in VS Code mechanism,
+    // not something ExtShield implements itself. exportAsJson/importFromJson
+    // below cover the case where Settings Sync isn't in use, or the user
+    // wants to hand a curated list to a teammate.
+    try {
+      context.globalState.setKeysForSync([STORAGE_KEY]);
+    } catch {
+      // setKeysForSync can be unavailable in some hosts; trust still works
+      // locally, it just won't participate in Settings Sync.
+    }
+
     const stored = context.globalState.get<{ added: string[]; removed: string[] }>(STORAGE_KEY, {
       added: [],
       removed: []
@@ -90,5 +103,63 @@ export class TrustedExtensionsManager {
       all.add(id);
     }
     return [...all].sort();
+  }
+
+  /**
+   * Serializes the user's *additions and removals* (not the built-in list
+   * itself, which ships with the extension) so it can be shared with a
+   * teammate or moved to a machine without Settings Sync enabled.
+   */
+  exportAsJson(): string {
+    return JSON.stringify(
+      {
+        extshieldTrustedExtensionsExport: 1,
+        exportedAt: new Date().toISOString(),
+        added: [...this.userAdded].sort(),
+        removedFromBuiltin: [...this.userRemovedFromBuiltin].sort()
+      },
+      null,
+      2
+    );
+  }
+
+  /**
+   * Merges an exported list into the current one (additive — this never
+   * removes trust the user already granted locally, it only adds to it,
+   * plus re-applies any explicit removals-from-builtin the export
+   * contained). Returns how many entries actually changed something, so
+   * the caller can report a meaningful count.
+   */
+  async importFromJson(json: string): Promise<{ added: number; removed: number }> {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      throw new Error('Not valid JSON.');
+    }
+    const added: string[] = Array.isArray(parsed?.added) ? parsed.added.filter((x: unknown) => typeof x === 'string') : [];
+    const removed: string[] = Array.isArray(parsed?.removedFromBuiltin)
+      ? parsed.removedFromBuiltin.filter((x: unknown) => typeof x === 'string')
+      : [];
+
+    let addedCount = 0;
+    let removedCount = 0;
+    for (const id of added) {
+      if (!this.userAdded.has(id)) {
+        this.userAdded.add(id);
+        this.userRemovedFromBuiltin.delete(id);
+        addedCount++;
+      }
+    }
+    for (const id of removed) {
+      if (BUILTIN_TRUSTED_IDS.includes(id) && !this.userRemovedFromBuiltin.has(id)) {
+        this.userRemovedFromBuiltin.add(id);
+        removedCount++;
+      }
+    }
+    if (addedCount || removedCount) {
+      await this.persist();
+    }
+    return { added: addedCount, removed: removedCount };
   }
 }

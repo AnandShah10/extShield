@@ -73,6 +73,50 @@ export class LogStore {
     }
   }
 
+  /**
+   * Retroactively overwrites a single event's persisted record — used when
+   * a threat-intel result arrives after the base event has already been
+   * queued or flushed to disk. If the event is still sitting in the
+   * pending (unflushed) batch, this just replaces it in place. Otherwise
+   * it rewrites the specific line in that day's on-disk file, leaving
+   * every other line untouched. A miss (event not found in either place —
+   * e.g. its file was already pruned) is silently a no-op: the in-memory
+   * dashboard copy is still correct, only the historical record misses the
+   * update, which is a documented tradeoff, not a bug.
+   */
+  async updateEvent(event: ActivityEvent): Promise<void> {
+    const pendingIdx = this.pending.findIndex((e) => e.id === event.id);
+    if (pendingIdx !== -1) {
+      this.pending[pendingIdx] = event;
+      return;
+    }
+
+    const fileUri = vscode.Uri.joinPath(this.logDir, `activity-${dateStamp(event.timestamp)}.jsonl`);
+    try {
+      const bytes = await vscode.workspace.fs.readFile(fileUri);
+      const lines = textDecoder.decode(bytes).split('\n').filter(Boolean);
+      let changed = false;
+      const rewritten = lines.map((line) => {
+        try {
+          const parsed = JSON.parse(line) as ActivityEvent;
+          if (parsed.id === event.id) {
+            changed = true;
+            return JSON.stringify(event);
+          }
+        } catch {
+          // malformed line — leave as-is
+        }
+        return line;
+      });
+      if (changed) {
+        await vscode.workspace.fs.writeFile(fileUri, textEncoder.encode(rewritten.join('\n') + '\n'));
+      }
+    } catch {
+      // file doesn't exist (already pruned, or never flushed under this
+      // date) — nothing to update on disk.
+    }
+  }
+
   /** Loads up to `maxEntries` most recent events, newest-file-first. */
   async loadRecent(maxEntries: number): Promise<ActivityEvent[]> {
     const files = await this.listLogFiles();

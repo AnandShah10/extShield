@@ -101,6 +101,20 @@ Initial release: activity monitoring, secret detection, per-extension policies, 
 
 Found a bug or have an idea? Issues and pull requests are welcome on the project's repository. For local development setup (build from source, run in a dev host), see `CONTRIBUTING.md`.
 
+## Support & Issues
+
+If you encounter any issues or have suggestions, please report them on the [Issues page](https://github.com/AnandShah10/extShield/issues).
+
+## Publisher Information
+
+- **Name**: Anand Shah
+- **GitHub**: [@AnandShah10](https://github.com/AnandShah10)
+- **Email**: [shahanand1072004@gmail.com](mailto:shahanand1072004@gmail.com)
+
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+*Built with ❤️ for the VS Code community by Anand Shah.*

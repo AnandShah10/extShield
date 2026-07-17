@@ -1,15 +1,52 @@
 # ExtShield — Zero-Trust Extension Monitor
 
-[![Version](https://img.shields.io/visual-studio-marketplace/v/AnandShah.extshield?label=version&color=blue)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/AnandShah.extshield?label=installs)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/AnandShah.extshield?label=rating)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
-[![License](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
+[![Visual Studio Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-0098FF?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=AnandShah.extshield)
+[![License](https://img.shields.io/github/license/AnandShah10/extShield)](LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/AnandShah10/extShield)](https://github.com/AnandShah10/extShield/issues)
+[![Stars](https://img.shields.io/github/stars/AnandShah10/extShield?style=social)](https://github.com/AnandShah10/extShield/stargazers)
 
 **See what your other extensions are actually doing — file access, network calls, and secrets — before it's a problem.**
 
 VS Code extensions run with full access to your files, your network, and anything in your workspace, with no built-in permission system to show you what they're doing with it. ExtShield watches the extensions you already have installed, flags sensitive file and suspicious network access as it happens, and gives you a one-click way to restrict or isolate anything that looks off — all from a sidebar, no Command Palette required.
 
 > **Read [Security Model & Limitations](#security-model--limitations) before you rely on this.** ExtShield gives real visibility and best-effort blocking; it is not a sandbox, and this README says so plainly rather than overselling it.
+
+---
+
+## 📸 Screenshots
+
+### Sidebar
+
+### Activity Dashboard
+
+![Activity Dashboard](media/dashboard.png)
+
+Monitor file access, network requests, process launches, and secret access from all installed extensions in one place.
+
+### Risk Scanner
+
+![Risk Scanner](media/risk-scan.png)
+
+Every installed extension is scored using heuristic analysis with detailed explanations for each risk factor.
+
+### Access Policy Manager
+![Access Policy Manager](media/access-policy.png)
+
+Restrict an extension's filesystem access, block network requests, or disable process spawning with per-extension policies.
+
+### Extension Isolation Suggestions
+![Extension Isolation Suggestions](media/isolation.png)
+
+When using Remote-SSH, Dev Containers, or WSL, ExtShield can recommend moving high-risk extensions into a separate extension host.
+
+### Trusted Extensions
+![Trusted Extensions](media/trusted.png)
+
+Manage your allowlist, import/export it, and sync trusted extensions using VS Code Settings Sync.
+
+![Sidebar](media/sidebar.png)
+
+Access monitoring, policy management, trusted extensions, and activity logs directly from the Activity Bar.
 
 ---
 

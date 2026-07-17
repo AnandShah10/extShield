@@ -8,6 +8,7 @@ import { LogStore } from './logStore';
 import { TrustedExtensionsManager } from './trustedExtensions';
 import { ThreatIntelService } from './threatIntel';
 import { buildIsolationSuggestion, applyExtensionKindOverride } from './isolationAdvisor';
+import { ExtShieldTreeProvider, ExtShieldTreeItem, TreeState } from './treeView';
 import { ActivityEvent, ExtensionPolicy } from './types';
 
 let outputChannel: vscode.OutputChannel;
@@ -19,6 +20,7 @@ let threatIntel: ThreatIntelService | undefined;
 let logStore: LogStore | undefined;
 let eventLog: ActivityEvent[] = [];
 let initError: string | undefined;
+let treeProvider: ExtShieldTreeProvider | undefined;
 
 function readConfig(): MonitorConfig & {
   enabled: boolean;
@@ -47,13 +49,14 @@ function updateStatusBar(): void {
   if (initError) {
     statusBarItem.text = `$(warning) ExtShield: init failed`;
     statusBarItem.tooltip = initError;
-    return;
+  } else {
+    const highRiskCount = eventLog.filter((e) => e.risk === 'high').length;
+    statusBarItem.text = monitor?.isRunning()
+      ? `$(shield) ExtShield: ${eventLog.length} events${highRiskCount ? ` ($(alert) ${highRiskCount})` : ''}`
+      : `$(circle-slash) ExtShield: off`;
+    statusBarItem.tooltip = 'Click to open ExtShield dashboard';
   }
-  const highRiskCount = eventLog.filter((e) => e.risk === 'high').length;
-  statusBarItem.text = monitor?.isRunning()
-    ? `$(shield) ExtShield: ${eventLog.length} events${highRiskCount ? ` ($(alert) ${highRiskCount})` : ''}`
-    : `$(circle-slash) ExtShield: off`;
-  statusBarItem.tooltip = 'Click to open ExtShield dashboard';
+  treeProvider?.refresh();
 }
 
 /**
@@ -80,13 +83,17 @@ function dashboardCallbacks() {
       if (!trustManager) return;
       await trustManager.addTrusted(extensionId);
       vscode.window.showInformationMessage(`ExtShield: ${extensionId} marked as trusted.`);
-      DashboardPanel.current?.updateRiskProfiles(scanInstalledExtensions(trustManager));
+      const profiles = scanInstalledExtensions(trustManager);
+      DashboardPanel.current?.updateRiskProfiles(profiles);
+      treeProvider?.setRiskProfiles(profiles);
     },
     onUntrustExtension: async (extensionId: string) => {
       if (!trustManager) return;
       await trustManager.removeTrusted(extensionId);
       vscode.window.showInformationMessage(`ExtShield: trust removed for ${extensionId}.`);
-      DashboardPanel.current?.updateRiskProfiles(scanInstalledExtensions(trustManager));
+      const profiles = scanInstalledExtensions(trustManager);
+      DashboardPanel.current?.updateRiskProfiles(profiles);
+      treeProvider?.setRiskProfiles(profiles);
     },
     onSuggestIsolation: (extensionId: string) => promptIsolation(extensionId)
   };
@@ -109,6 +116,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // exactly what produces VS Code's "command 'extshield.X' not found"
   // error. Now a failure anywhere in initialization can only ever disable
   // functionality, never the command's existence.
+  // The sidebar view is registered up front for the same reason commands
+  // are: it should never disappear just because later initialization fails.
+  treeProvider = new ExtShieldTreeProvider(
+    (): TreeState => ({
+      ready: !initError,
+      initErrorMessage: initError,
+      monitoringOn: monitor?.isRunning() ?? false,
+      eventCount: eventLog.length,
+      highRiskCount: eventLog.filter((e) => e.risk === 'high').length,
+      blockedCount: eventLog.filter((e) => e.blocked).length
+    })
+  );
+  context.subscriptions.push(vscode.window.registerTreeDataProvider('extshield.mainView', treeProvider));
+
   registerCommands(context);
 
   try {
@@ -265,10 +286,10 @@ function registerCommands(context: vscode.ExtensionContext): void {
       const profiles = scanInstalledExtensions(trustManager);
       const highRisk = profiles.filter((p) => p.riskScore >= 40).length;
       vscode.window.showInformationMessage(
-        `ExtShield scanned ${profiles.length} extensions — ${highRisk} flagged as higher-risk. See dashboard for details.`
+        `ExtShield scanned ${profiles.length} extensions — ${highRisk} flagged as higher-risk. See the sidebar or dashboard for details.`
       );
-      const panel = DashboardPanel.createOrShow(context.extensionUri, dashboardCallbacks());
-      panel.updateRiskProfiles(profiles);
+      treeProvider?.setRiskProfiles(profiles);
+      DashboardPanel.current?.updateRiskProfiles(profiles);
     })
   );
 
@@ -313,6 +334,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
         }
       }
       vscode.window.showInformationMessage(`ExtShield: trusted-extensions list updated (${pickedIds.size} trusted).`);
+      treeProvider?.setRiskProfiles(scanInstalledExtensions(tm));
     })
   );
 
@@ -369,6 +391,65 @@ function registerCommands(context: vscode.ExtensionContext): void {
           vscode.env.clipboard.writeText(location);
         }
       });
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.showOutput', () => {
+      outputChannel.show(true);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.refreshTree', () => {
+      if (notReady() || !trustManager) {
+        treeProvider?.refresh();
+        return;
+      }
+      treeProvider?.setRiskProfiles(scanInstalledExtensions(trustManager));
+    })
+  );
+
+  // These three are invoked from the sidebar's inline row icons
+  // (view/item/context in package.json), which pass the clicked
+  // ExtShieldTreeItem as the argument — that's how a specific extension ID
+  // reaches the handler without re-prompting the user to pick one.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.treeSetPolicy', async (item?: ExtShieldTreeItem) => {
+      if (notReady()) return;
+      if (item?.extensionId) {
+        await promptSetPolicy(item.extensionId);
+      } else {
+        await vscode.commands.executeCommand('extshield.setPolicy');
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.treeToggleTrust', async (item?: ExtShieldTreeItem) => {
+      if (notReady() || !trustManager || !item?.extensionId) return;
+      const tm = trustManager;
+      if (tm.isTrusted(item.extensionId)) {
+        await tm.removeTrusted(item.extensionId);
+        vscode.window.showInformationMessage(`ExtShield: trust removed for ${item.extensionId}.`);
+      } else {
+        await tm.addTrusted(item.extensionId);
+        vscode.window.showInformationMessage(`ExtShield: ${item.extensionId} marked as trusted.`);
+      }
+      const profiles = scanInstalledExtensions(tm);
+      treeProvider?.setRiskProfiles(profiles);
+      DashboardPanel.current?.updateRiskProfiles(profiles);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extshield.treeSuggestIsolation', async (item?: ExtShieldTreeItem) => {
+      if (notReady()) return;
+      if (item?.extensionId) {
+        await promptIsolation(item.extensionId);
+      } else {
+        await vscode.commands.executeCommand('extshield.suggestIsolation');
+      }
     })
   );
 }

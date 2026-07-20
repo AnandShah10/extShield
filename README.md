@@ -136,7 +136,7 @@ Initial release: activity monitoring, secret detection, per-extension policies, 
 
 ## Contributing
 
-Found a bug or have an idea? Issues and pull requests are welcome on the project's repository. For local development setup (build from source, run in a dev host), see `CONTRIBUTING.md`.
+Found a bug or have an idea? Issues and pull requests are welcome on the project's repository. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for build instructions and [`DEVELOPMENT.md`](DEVELOPMENT.md) for architecture, debugging, and how to extend the monitoring system.
 
 ## Support & Issues
 

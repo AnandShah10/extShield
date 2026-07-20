@@ -1,5 +1,7 @@
 # Contributing to ExtShield
 
+See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture overview, debugging tips, how to add new monitoring, testing practices, and release process. This file focuses on build instructions, project layout, and core design principles.
+
 ## Building from source
 
 ```bash

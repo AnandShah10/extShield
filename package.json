@@ -2,7 +2,7 @@
   "name": "extshield",
   "displayName": "ExtShield — Zero-Trust Extension Monitor",
   "description": "Monitors file access, network calls, and secret usage by other installed VS Code extensions, and lets you set best-effort access policies per extension.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "AnandShah",
   "repository": {
     "type": "git",
@@ -11,6 +11,7 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "icon": "media/icon.png",
   "categories": ["Other"],
   "keywords": ["security", "sandbox", "privacy", "extensions", "monitor"],
   "activationEvents": ["onStartupFinished"],
